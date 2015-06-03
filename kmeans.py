@@ -99,8 +99,26 @@ def errorCeter(oldcenter,newcenter):
 		# print('d',d,sum)
 	return sum/len(oldcenter)
 
+def addIDF(dataset):
+	wordDic={}
+	for doc in dataset:
+		for word in doc['x'].keys():
+			if word in wordDic:
+				wordDic[word]+=doc['x'][word]
+			else:
+				wordDic[word]=doc['x'][word]
+	n=0
+	for word in wordDic.keys():
+		n+=wordDic[word]
+	for doc in dataset:
+		for word in doc['x'].keys():
+			doc['x'][word]*=math.log(n/wordDic[word])
+		li=sorted(doc['x'].iteritems(),key=lambda x:x[1],reverse=True)
+		doc['x']={w[0]:w[1] for w in li[0:100]}
+
 def reAssing(dataset,centers):
-	wcss=0
+	global wcss
+	wcss=0.0
 	i=0
 	for doc in dataset:
 		doc['cluster'],dis=findNearest(doc['x'],centers,cosDistence)
@@ -108,7 +126,7 @@ def reAssing(dataset,centers):
 		i+=1
 		# if i%100==0:print ('reassing',i)
 	# print ([doc['cluster'] for doc in dataset])
-	print ('wcss',wcss)
+	# print ('wcss',wcss)
 
 def reCenter(dataset,oldcenters,k):
 	centers=[]
@@ -127,7 +145,7 @@ def fc(co):
 		for lab in co[result]:
 			sum+=co[result][lab]
 		recall[result]=co[result][result]/sum
-		print ('recall:',result,recall[result])
+		# print ('recall:',result,recall[result])
 	ac={}
 	col={}
 	for result in co:
@@ -136,11 +154,16 @@ def fc(co):
 		for lab in co[result]:
 			col[lab]+=co[result][lab]
 	for result in co:
-		ac[result]=co[result][result]/col[result]
-		print ('ac:',result,ac[result])
-
+		if col[result]!=0:
+			ac[result]=co[result][result]/col[result]
+		else:
+			ac[result]=1
+		# print ('ac:',result,ac[result])
+	f1=0.0
 	for result in co:
-		print ('f1:',result,2*ac[result]*recall[result]/(ac[result]+recall[result]))
+		f1+=2*ac[result]*recall[result]/(ac[result]+recall[result])
+		# print ('f1:',result,2*ac[result]*recall[result]/(ac[result]+recall[result]))
+	return f1/len(co.keys())
 def result(dataset,k):
 	
 	cluster2lables=['0']*k
@@ -159,16 +182,18 @@ def result(dataset,k):
 		# else:
 		# 	res[doc['y']]=[0,0,0]
 		# 	res[doc['y']][doc['cluster']]+=1
-	fc(res)
+	print (k,fc(res),wcss)
 	return res
 
 print ('loading dataset')
 dataset=prepareData('data')
+print ('adding idf')
+addIDF(dataset)
 for doc in dataset:
 		normal(doc['x'])
 print('normal OK')
 def main(k):
-	print ('k=',k)
+	# print ('k=',k)
 	oldcenters=[p['x'] for p in random.sample(dataset,k)]
 	# print(len(oldcenters))
 	reAssing(dataset,oldcenters)
@@ -176,14 +201,15 @@ def main(k):
 	# print newcenters
 	e=errorCeter(newcenters,oldcenters)
 	while e>0.003:
-		print ('e',e)
+		# print ('e',e)
 		# print dataset
 		oldcenters=newcenters
 		reAssing(dataset,oldcenters)
 		newcenters=reCenter(dataset,oldcenters,k)
 		# print newcenters
 		e=errorCeter(newcenters,oldcenters)
-	print(result(dataset,k))
+	result(dataset,k)
+	# print()
 
 if __name__ == '__main__':
 	main(3)
